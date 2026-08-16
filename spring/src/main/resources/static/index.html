@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌾 高光谱地物分类系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            background: linear-gradient(145deg, #f6f9fc 0%, #e6f0f5 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 720px;
+            width: 100%;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 48px;
+            padding: 40px 35px;
+            box-shadow: 0 30px 60px rgba(0, 20, 40, 0.15);
+            border: 1px solid rgba(255,255,255,0.6);
+            transition: 0.3s;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0a2a44;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.3px;
+            margin-bottom: 8px;
+        }
+
+        .sub {
+            color: #5a7a94;
+            font-size: 15px;
+            margin-bottom: 28px;
+            border-left: 4px solid #3b8fc2;
+            padding-left: 16px;
+            background: rgba(59, 143, 194, 0.06);
+            border-radius: 0 12px 12px 0;
+            line-height: 1.6;
+        }
+
+        .upload-area {
+            border: 2px dashed #b8d1e0;
+            border-radius: 28px;
+            padding: 40px 20px;
+            text-align: center;
+            background: white;
+            transition: 0.25s;
+            cursor: pointer;
+            margin-bottom: 24px;
+        }
+
+        .upload-area:hover {
+            border-color: #3b8fc2;
+            background: #f2faff;
+            transform: scale(1.01);
+        }
+
+        .upload-area .icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #0a2a44;
+            background: #eef4f9;
+            padding: 8px 20px;
+            border-radius: 30px;
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin: 12px 0 20px;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 14px 18px;
+            border: none;
+            border-radius: 40px;
+            font-size: 17px;
+            font-weight: 600;
+            background: #eef4f9;
+            color: #1f3a57;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.02);
+        }
+
+        .btn-primary {
+            background: #0f3b5c;
+            color: white;
+            box-shadow: 0 8px 18px rgba(15, 59, 92, 0.25);
+        }
+
+        .btn-primary:hover {
+            background: #1a4f73;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(15, 59, 92, 0.35);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #b8d1e0;
+        }
+
+        .btn-outline:hover {
+            background: #e6f0f5;
+        }
+
+        .preview-box {
+            margin: 20px 0 22px;
+            border-radius: 24px;
+            overflow: hidden;
+            background: #fafcfd;
+            border: 1px solid #dae8f0;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 12px;
+        }
+
+        .preview-box img {
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        }
+
+        .result-card {
+            background: #ffffff;
+            border-radius: 28px;
+            padding: 22px 26px;
+            border: 1px solid #dae8f0;
+            display: none;
+            margin-top: 10px;
+            box-shadow: 0 8px 20px rgba(0, 20, 30, 0.04);
+        }
+
+        .result-card .label {
+            color: #5a7a94;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .result-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0a2a44;
+            margin: 2px 0 12px;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #edf3f8;
+            padding: 12px 0;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .badge {
+            background: #dff0fa;
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #0f3b5c;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #0e5533;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footnote {
+            margin-top: 24px;
+            font-size: 13px;
+            color: #7a9ab0;
+            text-align: center;
+            border-top: 1px solid #dae8f0;
+            padding-top: 20px;
+        }
+
+        .status-text {
+            font-size: 14px;
+            color: #3b8fc2;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌾 高光谱分类</h1>
+    <div class="sub">
+        🛰️ 基于双曲空间残差网络 · QUH-Pingan 地物识别<br>
+        <span style="font-size:13px;color:#7a9ab0;">支持 10 类地物：船舶、海水、树木、建筑、码头、砖房、钢架房、施工地、汽车、道路</span>
+    </div>
+
+    <!-- 上传区 -->
+    <div class="upload-area" id="uploadArea">
+        <span class="icon">📤</span>
+        <div style="font-weight:500;color:#1f3a57;">点击选择或拖拽图片</div>
+        <div style="font-size:14px;color:#7a9ab0;margin-top:6px;">支持 JPG / PNG / TIFF</div>
+        <input type="file" id="fileInput" accept="image/*">
+        <div style="margin-top:14px;">
+            <span class="file-name" id="fileName">未选择文件</span>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="btn-group">
+        <button class="btn btn-primary" id="predictBtn">🚀 开始识别</button>
+        <button class="btn btn-outline" id="clearBtn">🔄 清空</button>
+    </div>
+
+    <!-- 预览 -->
+    <div class="preview-box" id="previewBox">
+        <img id="previewImage" src="" alt="预览图">
+    </div>
+
+    <!-- 结果 -->
+    <div class="result-card" id="resultCard">
+        <div class="label">📌 识别结果</div>
+        <div class="value" id="classNameDisplay">—</div>
+
+        <div class="result-row">
+            <span style="color:#3a5a74;">类别编号</span>
+            <span class="badge" id="classIdDisplay">-</span>
+        </div>
+        <div class="result-row">
+            <span style="color:#3a5a74;">置信度</span>
+            <span class="badge" id="confidenceDisplay">-</span>
+        </div>
+        <div class="result-row" style="border-bottom: none;">
+            <span style="color:#3a5a74;">状态</span>
+            <span class="badge badge-success" id="statusDisplay">✅ 成功</span>
+        </div>
+        <div id="errorDetail" style="color:#b33;font-size:14px;margin-top:10px;display:none;"></div>
+    </div>
+
+    <div class="footnote">
+        ⚡ 后端服务：Spring Boot + FastAPI · 模型：双曲残差网络 (84.64% 测试精度)
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const previewBox = document.getElementById('previewBox');
+    const previewImage = document.getElementById('previewImage');
+    const predictBtn = document.getElementById('predictBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const resultCard = document.getElementById('resultCard');
+    const classNameDisplay = document.getElementById('classNameDisplay');
+    const classIdDisplay = document.getElementById('classIdDisplay');
+    const confidenceDisplay = document.getElementById('confidenceDisplay');
+    const statusDisplay = document.getElementById('statusDisplay');
+    const errorDetail = document.getElementById('errorDetail');
+
+    let selectedFile = null;
+
+    // 上传区域点击触发文件选择
+    document.getElementById('uploadArea').addEventListener('click', () => fileInput.click());
+
+    // 文件选择
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        selectedFile = file;
+        fileName.textContent = file.name;
+
+        // 预览
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            previewImage.src = ev.target.result;
+            previewBox.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+
+        // 隐藏旧结果
+        resultCard.style.display = 'none';
+    });
+
+    // 清空
+    clearBtn.addEventListener('click', () => {
+        selectedFile = null;
+        fileInput.value = '';
+        fileName.textContent = '未选择文件';
+        previewBox.style.display = 'none';
+        resultCard.style.display = 'none';
+        errorDetail.style.display = 'none';
+    });
+
+    // 预测
+    predictBtn.addEventListener('click', async () => {
+        if (!selectedFile) {
+            alert('请先选择一张图片！');
+            return;
+        }
+
+        predictBtn.disabled = true;
+        predictBtn.innerHTML = '<span class="loader"></span> 识别中...';
+        resultCard.style.display = 'none';
+        errorDetail.style.display = 'none';
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        try {
+            const response = await fetch('/api/predict', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.code === 200 && data.data) {
+                const d = data.data;
+                classNameDisplay.textContent = d.class_name || '未知';
+                classIdDisplay.textContent = d.predicted_class ?? '-';
+                confidenceDisplay.textContent = d.confidence !== undefined && d.confidence > 0
+                    ? (d.confidence * 100).toFixed(2) + '%'
+                    : '—';
+                statusDisplay.textContent = d.status === 'success' ? '✅ 识别成功' : '⚠️ ' + d.status;
+                resultCard.style.display = 'block';
+            } else {
+                // 后端返回了错误
+                resultCard.style.display = 'block';
+                classNameDisplay.textContent = '❌ 请求失败';
+                classIdDisplay.textContent = '-';
+                confidenceDisplay.textContent = '-';
+                statusDisplay.textContent = '⚠️ 服务异常';
+                errorDetail.textContent = data.message || '未知错误';
+                errorDetail.style.display = 'block';
+            }
+        } catch (err) {
+            resultCard.style.display = 'block';
+            classNameDisplay.textContent = '❌ 网络错误';
+            classIdDisplay.textContent = '-';
+            confidenceDisplay.textContent = '-';
+            statusDisplay.textContent = '⚠️ 连接失败';
+            errorDetail.textContent = err.message || '请检查后端服务是否启动';
+            errorDetail.style.display = 'block';
+        }
+
+        predictBtn.disabled = false;
+        predictBtn.innerHTML = '🚀 开始识别';
+    });
+
+    // 拖拽上传
+    const uploadArea = document.getElementById('uploadArea');
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#0f3b5c';
+        uploadArea.style.background = '#e6f2fa';
+    });
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.borderColor = '#b8d1e0';
+        uploadArea.style.background = 'white';
+    });
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#b8d1e0';
+        uploadArea.style.background = 'white';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            fileInput.files = e.dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+
+</body>
+</html>

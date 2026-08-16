@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍎 苹果病害智能识别 + Agent</title>
+    <style>
+        /* ===== 原有样式保留 ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            background: linear-gradient(145deg, #fdf6f6 0%, #f3eef0 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 820px;
+            width: 100%;
+            background: rgba(255,255,255,0.88);
+            backdrop-filter: blur(12px);
+            border-radius: 36px;
+            padding: 40px 35px;
+            box-shadow: 0 24px 50px rgba(80, 20, 30, 0.12);
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #5a1020;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .sub {
+            color: #7a4a55;
+            font-size: 15px;
+            margin-bottom: 28px;
+            border-left: 4px solid #c0392b;
+            padding-left: 16px;
+            background: rgba(192, 57, 43, 0.06);
+            border-radius: 0 12px 12px 0;
+            line-height: 1.6;
+        }
+
+        .upload-area {
+            border: 2px dashed #e0b8bd;
+            border-radius: 24px;
+            padding: 30px 20px;
+            text-align: center;
+            background: white;
+            transition: 0.25s;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+
+        .upload-area:hover {
+            border-color: #c0392b;
+            background: #fdf2f3;
+        }
+
+        .upload-area .icon {
+            font-size: 36px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #5a1020;
+            background: #fdeef0;
+            padding: 6px 18px;
+            border-radius: 30px;
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        /* ===== 聊天区域 ===== */
+        .chat-box {
+            background: #faf7f8;
+            border-radius: 20px;
+            padding: 16px 20px;
+            max-height: 320px;
+            overflow-y: auto;
+            margin: 16px 0;
+            border: 1px solid #f0d8dc;
+            display: none;
+        }
+
+        .chat-box .msg {
+            margin-bottom: 12px;
+            padding: 10px 16px;
+            border-radius: 16px;
+            max-width: 85%;
+            word-wrap: break-word;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .chat-box .msg.user {
+            background: #c0392b;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-box .msg.assistant {
+            background: #f0e8ea;
+            color: #3d2228;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-box .msg .label {
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 2px;
+        }
+
+        .chat-box .msg .image-preview {
+            max-width: 120px;
+            border-radius: 8px;
+            margin-top: 6px;
+        }
+
+        /* ===== 输入区 ===== */
+        .input-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 40px;
+            border: 1.5px solid #e0b8bd;
+            font-size: 15px;
+            outline: none;
+            background: white;
+            transition: 0.2s;
+        }
+
+        .input-row input:focus {
+            border-color: #c0392b;
+            box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.1);
+        }
+
+        .input-row button {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 40px;
+            background: #c0392b;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+
+        .input-row button:hover {
+            background: #d04638;
+            transform: translateY(-1px);
+        }
+
+        .input-row button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ===== 原有结果样式 ===== */
+        .preview-box {
+            margin: 12px 0 16px;
+            border-radius: 20px;
+            overflow: hidden;
+            background: #fdfcfc;
+            border: 1px solid #f0d8dc;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .preview-box img {
+            max-width: 100%;
+            max-height: 260px;
+            border-radius: 14px;
+        }
+
+        .result-card {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 18px 22px;
+            border: 1px solid #f0d8dc;
+            display: none;
+            margin-top: 10px;
+        }
+
+        .result-card .label {
+            color: #7a4a55;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .result-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #5a1020;
+            margin: 2px 0 10px;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #fbeef0;
+            padding: 10px 0;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .badge {
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #5a1020;
+            background: #fdeef0;
+        }
+
+        .badge-success { background: #d4edda; color: #0e5533; }
+        .badge-warn { background: #fff3cd; color: #8a6d00; }
+        .badge-err { background: #f8d7da; color: #721c1c; }
+
+        .probs-block { margin-top: 14px; }
+        .probs-block .label { color: #7a4a55; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+        .prob-item { margin-bottom: 10px; }
+        .prob-head { display: flex; justify-content: space-between; font-size: 14px; color: #5a1020; margin-bottom: 3px; }
+        .prob-bar-bg { height: 8px; background: #fbeef0; border-radius: 8px; overflow: hidden; }
+        .prob-bar { height: 100%; border-radius: 8px; transition: width 0.8s ease; width: 0%; }
+        .bar-healthy { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .bar-rust { background: linear-gradient(90deg, #e67e22, #d35400); }
+        .bar-scab { background: linear-gradient(90deg, #8e44ad, #6c3483); }
+
+        .loader {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .footnote {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #9a6a72;
+            text-align: center;
+            border-top: 1px solid #f0d8dc;
+            padding-top: 16px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 6px 0 10px;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            background: #fdeef0;
+            color: #5a1020;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-primary {
+            background: #c0392b;
+            color: white;
+            box-shadow: 0 6px 16px rgba(192, 57, 43, 0.25);
+        }
+
+        .btn-primary:hover {
+            background: #d04638;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #e0b8bd;
+        }
+
+        .btn-outline:hover { background: #fdeef0; }
+
+        .typing {
+            color: #9a6a72;
+            font-style: italic;
+            padding: 8px 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🍎 苹果病害智能识别</h1>
+    <div class="sub">
+        🌿 基于 ResNet50 + LangChain Agent 的智能问答<br>
+        <span style="font-size:13px;color:#9a6a72;">上传图片 + 输入问题，Agent 会结合识别结果和知识库回答</span>
+    </div>
+
+    <!-- 上传区 -->
+    <div class="upload-area" id="uploadArea">
+        <span class="icon">📤</span>
+        <div style="font-weight:500;color:#5a1020;">点击选择或拖拽图片</div>
+        <div style="font-size:14px;color:#9a6a72;margin-top:4px;">支持 JPG / PNG</div>
+        <input type="file" id="fileInput" accept="image/*">
+        <div style="margin-top:10px;">
+            <span class="file-name" id="fileName">未选择文件</span>
+        </div>
+    </div>
+
+    <!-- 预览 -->
+    <div class="preview-box" id="previewBox">
+        <img id="previewImage" src="" alt="预览图">
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="btn-group">
+        <button class="btn btn-outline" id="clearBtn">🔄 清空</button>
+    </div>
+
+    <!-- ===== 聊天区域 ===== -->
+    <div class="chat-box" id="chatBox">
+        <!-- 消息会动态插入这里 -->
+    </div>
+
+    <!-- ===== 输入区 ===== -->
+    <div class="input-row">
+        <input type="text" id="questionInput" placeholder="💬 输入你的问题，比如：这个病害怎么防治？" />
+        <button id="sendBtn">📤 发送</button>
+    </div>
+
+    <!-- ===== 识别结果卡片 ===== -->
+    <div class="result-card" id="resultCard">
+        <div class="label">📌 识别结果</div>
+        <div class="value" id="classNameDisplay">—</div>
+
+        <div class="result-row">
+            <span style="color:#7a4a55;">类别编号</span>
+            <span class="badge" id="classIdDisplay">-</span>
+        </div>
+        <div class="result-row">
+            <span style="color:#7a4a55;">置信度</span>
+            <span class="badge" id="confidenceDisplay">-</span>
+        </div>
+
+        <div class="probs-block">
+            <div class="label">📊 三类概率分布</div>
+            <div class="prob-item">
+                <div class="prob-head"><span>healthy 健康</span><span id="probHealthyText">—</span></div>
+                <div class="prob-bar-bg"><div class="prob-bar bar-healthy" id="probHealthyBar"></div></div>
+            </div>
+            <div class="prob-item">
+                <div class="prob-head"><span>rust 锈病</span><span id="probRustText">—</span></div>
+                <div class="prob-bar-bg"><div class="prob-bar bar-rust" id="probRustBar"></div></div>
+            </div>
+            <div class="prob-item">
+                <div class="prob-head"><span>scab 黑星病</span><span id="probScabText">—</span></div>
+                <div class="prob-bar-bg"><div class="prob-bar bar-scab" id="probScabBar"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footnote">
+        ⚡ 后端：Spring Boot + FastAPI (8002) · 模型：ResNet50 · Agent：LangChain
+    </div>
+</div>
+
+<script>
+    // ===== DOM 引用 =====
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const previewBox = document.getElementById('previewBox');
+    const previewImage = document.getElementById('previewImage');
+    const clearBtn = document.getElementById('clearBtn');
+    const resultCard = document.getElementById('resultCard');
+    const classNameDisplay = document.getElementById('classNameDisplay');
+    const classIdDisplay = document.getElementById('classIdDisplay');
+    const confidenceDisplay = document.getElementById('confidenceDisplay');
+    const chatBox = document.getElementById('chatBox');
+    const questionInput = document.getElementById('questionInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    const CLASS_CN = {
+        healthy: '健康',
+        rust: '锈病',
+        Scab: '黑星病'   // ← 大写 S，与后端一致
+    };
+
+    let selectedFile = null;
+    let isProcessing = false;
+
+    // ===== 图片上传 =====
+    document.getElementById('uploadArea').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        selectedFile = file;
+        fileName.textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            previewImage.src = ev.target.result;
+            previewBox.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+
+        resultCard.style.display = 'none';
+    });
+
+    clearBtn.addEventListener('click', () => {
+        selectedFile = null;
+        fileInput.value = '';
+        fileName.textContent = '未选择文件';
+        previewBox.style.display = 'none';
+        resultCard.style.display = 'none';
+        chatBox.innerHTML = '';
+        chatBox.style.display = 'none';
+        questionInput.value = '';
+    });
+
+    // ===== 概率渲染 =====
+    function renderProbs(probs) {
+        const items = [
+            { key: 'healthy', text: 'probHealthyText', bar: 'probHealthyBar' },
+            { key: 'rust',    text: 'probRustText',    bar: 'probRustBar' },
+            { key: 'Scab',    text: 'probScabText',    bar: 'probScabBar' }  // ← 大写 S
+        ];
+        items.forEach(it => {
+            const v = probs && probs[it.key] !== undefined ? probs[it.key] : 0;
+            document.getElementById(it.text).textContent = (v * 100).toFixed(2) + '%';
+            document.getElementById(it.bar).style.width = (v * 100) + '%';
+        });
+    }
+
+    // ===== 添加消息到聊天 =====
+    function addMessage(role, content, imageBase64 = null) {
+        chatBox.style.display = 'block';
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `msg ${role}`;
+
+        const label = document.createElement('div');
+        label.className = 'label';
+        label.textContent = role === 'user' ? '👤 你' : '🤖 Agent';
+        msgDiv.appendChild(label);
+
+        const contentDiv = document.createElement('div');
+        contentDiv.textContent = content;
+        msgDiv.appendChild(contentDiv);
+
+        if (imageBase64) {
+            const img = document.createElement('img');
+            img.className = 'image-preview';
+            img.src = `data:image/jpeg;base64,${imageBase64}`;
+            msgDiv.appendChild(img);
+        }
+
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // ===== 发送消息 =====
+    sendBtn.addEventListener('click', async () => {
+        const question = questionInput.value.trim();
+        if (!question) {
+            alert('请输入你的问题！');
+            return;
+        }
+
+        if (isProcessing) return;
+        isProcessing = true;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<span class="loader"></span> 思考中...';
+
+        // 显示用户消息
+        addMessage('user', question);
+
+        // 清空输入框
+        questionInput.value = '';
+
+        try {
+            // 构建请求
+            const payload = { question: question };
+
+            // 如果有图片，转 base64
+            if (selectedFile) {
+                const reader = new FileReader();
+                const base64 = await new Promise((resolve) => {
+                    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                    reader.readAsDataURL(selectedFile);
+                });
+                payload.image_base64 = base64;
+            }
+
+            const response = await fetch('http://localhost:8002/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // 显示 Agent 回答
+                addMessage('assistant', data.answer || '没有获取到回答');
+
+                // 更新识别结果卡片
+                if (data.class && data.class !== 'unknown') {
+                    const cn = CLASS_CN[data.class] || data.class;
+                    classNameDisplay.textContent = '✅ ' + data.class + '（' + cn + '）';
+                    classIdDisplay.textContent = data.class_index ?? '-';
+                    confidenceDisplay.textContent = data.confidence !== undefined
+                        ? (data.confidence * 100).toFixed(2) + '%'
+                        : '—';
+                    renderProbs(data.all_probs || {});
+                    resultCard.style.display = 'block';
+                }
+            } else {
+                addMessage('assistant', '❌ 服务异常：' + (data.message || '未知错误'));
+            }
+        } catch (err) {
+            addMessage('assistant', '❌ 网络错误：' + err.message);
+        }
+
+        isProcessing = false;
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '📤 发送';
+    });
+
+    // ===== 回车发送 =====
+    questionInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendBtn.click();
+        }
+    });
+
+    // ===== 拖拽上传 =====
+    const uploadArea = document.getElementById('uploadArea');
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#c0392b';
+        uploadArea.style.background = '#fdeef0';
+    });
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.borderColor = '#e0b8bd';
+        uploadArea.style.background = 'white';
+    });
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#e0b8bd';
+        uploadArea.style.background = 'white';
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            fileInput.files = e.dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+
+</body>
+</html>

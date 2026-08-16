@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>CIFAR-10 智能描述</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 30px; background: #f5f7fa; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .upload-area { border: 2px dashed #ccc; padding: 30px; text-align: center; border-radius: 8px; margin: 20px 0; cursor: pointer; }
+        .upload-area:hover { border-color: #4CAF50; background: #f0faf0; }
+        .btn { background: #4CAF50; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 16px; cursor: pointer; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 20px; background: #f0f8f0; border-radius: 8px; display: none; }
+        .result .class { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .result .conf { color: #7f8c8d; }
+        .result .desc { margin-top: 12px; font-size: 16px; line-height: 1.6; color: #34495e; }
+        img.preview { max-width: 100%; max-height: 200px; margin: 10px 0; border-radius: 8px; display: none; }
+        .loading { color: #3498db; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🖼️ CIFAR-10 智能描述</h1>
+    <p>上传一张图片，CNN 识别 + 大模型生成描述</p>
+
+    <div class="upload-area" id="uploadArea">
+        📤 点击选择图片<br>
+        <span style="font-size:12px;color:#999;">支持 JPG / PNG</span>
+        <input type="file" id="fileInput" accept="image/*" style="display:none;">
+        <div id="fileName" style="margin-top:10px;font-size:14px;color:#555;"></div>
+    </div>
+
+    <img class="preview" id="previewImg">
+
+    <button class="btn" id="predictBtn">🚀 识别并描述</button>
+
+    <div class="result" id="resultDiv">
+        <div class="class" id="className">—</div>
+        <div class="conf" id="confidence">置信度：—</div>
+        <div class="desc" id="description">等待识别...</div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const previewImg = document.getElementById('previewImg');
+    const predictBtn = document.getElementById('predictBtn');
+    const resultDiv = document.getElementById('resultDiv');
+    const className = document.getElementById('className');
+    const confidence = document.getElementById('confidence');
+    const description = document.getElementById('description');
+    const uploadArea = document.getElementById('uploadArea');
+
+    let selectedFile = null;
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        selectedFile = file;
+        fileName.textContent = '📎 ' + file.name;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            previewImg.src = ev.target.result;
+            previewImg.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+
+        resultDiv.style.display = 'none';
+    });
+
+    predictBtn.addEventListener('click', async () => {
+        if (!selectedFile) {
+            alert('请先选择一张图片！');
+            return;
+        }
+
+        predictBtn.disabled = true;
+        predictBtn.textContent = '⏳ 识别中...';
+        resultDiv.style.display = 'block';
+        className.textContent = '⏳ 正在识别...';
+        description.textContent = '请稍候...';
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        try {
+            const response = await fetch('/api/cifar/describe', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.code === 200 && data.data && data.data.status === 'success') {
+                const d = data.data;
+                className.textContent = '✅ ' + d.class;
+                confidence.textContent = '置信度：' + (d.confidence * 100).toFixed(2) + '%';
+                description.textContent = '📝 ' + d.description;
+            } else {
+                className.textContent = '❌ 识别失败';
+                description.textContent = data.message || '未知错误';
+            }
+        } catch (err) {
+            className.textContent = '❌ 网络错误';
+            description.textContent = err.message;
+        }
+
+        predictBtn.disabled = false;
+        predictBtn.textContent = '🚀 识别并描述';
+    });
+</script>
+</body>
+</html>

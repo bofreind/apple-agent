@@ -1,0 +1,59 @@
+# ===== 苹果病虫害智能体 .gitignore =====
+
+# ---- IDE ----
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+.python-version
+
+# ---- 密钥（绝不上传）----
+.env
+.env.*
+*.key
+*.pem
+
+# ---- 大文件：模型（重新训练可生成，不入库）----
+*.pth
+*.pt
+*.onnx
+*.ckpt
+*.h5
+*.weights
+
+# ---- 数据：图片数据集（体积大，另行管理）----
+train/
+test/
+data/
+dataset/
+Apple_test/
+VOCdevkit/
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# ---- Notebook 输出 ----
+.ipynb_checkpoints/
+
+# ---- 临时文件 ----
+*.bak
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
