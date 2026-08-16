@@ -52,6 +52,23 @@ python agent_api.py               # 启动 FastAPI 服务，端口 8002
 
 ## 注意
 
-- 模型文件 `best_apple_model.pth` 未纳入 git（90MB，用 `train_apple_model.py` 重新训练生成）
+- 模型文件 `best_apple_model*.pth` 未纳入 git（90MB，用 `train_apple_model.py` 重新训练生成，默认加载 `best_apple_model2.pth`）
 - 图片数据集 `train/`、`test/` 未纳入 git
 - `.env` 含 API 密钥，**已从 git 排除，请勿提交**
+- 类别映射统一由 `agent/class_mapping.json` 管理（训练/推理共用，避免类别错位）
+
+## 重新训练（修复 Scab 数据缺失后）
+
+```bash
+cd agent
+python augment_scab.py   # 从 test/Scab 增强生成训练图（train/Scab 原本为空）
+python train_apple_model.py  # 训练并保存模型 + 类别映射
+```
+
+## 优化说明（2026-08）
+
+- **类别映射统一**：训练/推理共用 `class_mapping.json`，修复了类别顺序可能错位的问题
+- **Scab 数据补全**：train/Scab 原本 0 张，用 test/Scab 增强生成 70 张
+- **置信度阈值**：低于 0.6 返回"不确定"，不再硬报类别
+- **agent_api.py 生命周期化**：Milvus 等依赖改为 lifespan 初始化，单个组件挂掉不影响服务启动
+- **调用重试**：识别服务调用带超时(15s)+重试(2次)
