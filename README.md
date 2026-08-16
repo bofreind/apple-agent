@@ -7,8 +7,8 @@
 ```
 apple-agent/
 ├── agent/                 # Python 智能体 + 分类模型代码
-│   ├── apple_agent.py     # 智能体主代码（问答 + 图片分析）
-│   ├── agent_api.py       # Agent 服务 API（8002/chat）
+│   ├── agent_api.py           # 【最终版】FastAPI 智能体服务（8002/chat）
+│   ├── apple_agent.py         # 旧版命令行交互版（无 API，仅参考）
 │   ├── apple_pest_model.py    # 苹果病害分类模型（ResNet50）
 │   ├── train_apple_model.py   # 训练脚本
 │   └── test.py / test.jpg     # 测试
@@ -35,12 +35,13 @@ Python 服务 (agent/)
 
 ## 启动方式
 
-### 1. Python 智能体服务
+### 1. Python 智能体服务（最终版）
 ```bash
 cd agent
 pip install -r requirements.txt   # 依赖（langchain、fastapi 等）
-# 配置 .env 里的 API Key（DeepSeek / 通义千问）
-python agent_api.py               # 启动 8002 端口
+# 配置 .env 里的 API Key（通义千问 QIANWEN_API_KEY / QIANWEN_API_URL）
+python agent_api.py               # 启动 FastAPI 服务，端口 8002
+# 依赖: Milvus 向量库(19530)、病害识别服务(8000/predict_apple)
 ```
 
 ### 2. Spring Boot 转发层
