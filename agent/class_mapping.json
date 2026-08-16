@@ -1,0 +1,17 @@
+{
+  "class_to_idx": {
+    "Scab": 0,
+    "healthy": 1,
+    "rust": 2
+  },
+  "idx_to_class": {
+    "0": "Scab",
+    "1": "healthy",
+    "2": "rust"
+  },
+  "class_cn": {
+    "Scab": "黑星病",
+    "healthy": "健康",
+    "rust": "锈病"
+  }
+}
