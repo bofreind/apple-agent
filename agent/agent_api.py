@@ -31,6 +31,17 @@ embedding_model = None
 llm_model = None
 agent = None
 
+# ============ 意图判断 ============
+# 寒暄/问候词：命中则不触发病害识别和知识库检索
+GREETING_WORDS = ["你好", "您好", "嗨", "hello", "hi", "hey", "早上好", "晚上好",
+                  "谢谢", "感谢", "再见", "拜拜", "在吗", "你是谁", "你能做什么",
+                  "介绍", "自我介绍", "help", "?"]
+# 农业知识词：命中才触发知识库检索
+AGRI_KEYWORDS = ["病", "虫", "防治", "农药", "杀菌", "施肥", "修剪", "果园",
+                 "叶片", "果实", "锈病", "黑星", "炭疽", "腐烂", "蚜虫",
+                 "叶螨", "红蜘蛛", "食心虫", "卷叶蛾", "白粉", "褐斑", "轮纹",
+                 "套袋", "波尔多", "石硫", "代森", "苯醚", "如何", "怎么", "什么"]
+
 
 # ============ 识别服务调用（带重试） ============
 def call_pest_service(image_path: str, retries: int = 2) -> dict:
@@ -60,14 +71,42 @@ def call_pest_service(image_path: str, retries: int = 2) -> dict:
 
 
 # ============ 工具 ============
-def identify_apple_disease(image_path: str) -> str:
-    """识别苹果叶片病害：输入图片路径，返回健康、锈病或黑星病。"""
-    result = call_pest_service(image_path)
-    if result.get("success"):
-        if result.get("class") == "unknown":
-            return f"识别结果不确定：{result.get('message', '置信度不足')}"
-        return f"识别结果：{result['class']}，置信度：{result['confidence']:.2%}"
-    return f"识别失败：{result.get('error', '未知错误')}"
+SEG_SERVICE_URL = "http://localhost:8003/segment_apple"
+
+
+def call_seg_service(image_path: str, retries: int = 2) -> dict:
+    """调用分割服务（8003），返回占比信息"""
+    last_err = None
+    for attempt in range(retries + 1):
+        try:
+            with open(image_path, "rb") as f:
+                response = requests.post(SEG_SERVICE_URL, files={"file": f}, timeout=20)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "success":
+                    return {"success": True, **data}
+                return {"success": False, "error": data.get("message", "分割异常")}
+            last_err = f"HTTP失败：{response.status_code}"
+        except Exception as e:
+            last_err = f"分割失败：{str(e)}"
+        logger.warning("分割服务调用失败(第%d次): %s", attempt + 1, last_err)
+    return {"success": False, "error": last_err}
+
+
+def analyze_apple_disease(image_path: str) -> str:
+    """分析苹果叶片病害严重程度：输入图片路径，返回 rust/Scab 占比和病变率。"""
+    result = call_seg_service(image_path)
+    if not result.get("success"):
+        return f"分割分析失败：{result.get('error', '未知错误')}"
+    if not result.get("has_leaf"):
+        return "未检测到叶片区域，请换一张更清晰的叶片图片。"
+    return (
+        f"叶片占比：{result['leaf_ratio']:.2%}，"
+        f"锈病占比：{result['rust_ratio']:.2%}，"
+        f"黑星病占比：{result['scab_ratio']:.2%}，"
+        f"总体病变率：{result['disease_ratio']:.2%}"
+        + ("，叶片已感染病害。" if result.get("has_disease") else "，未检测到明显病害。")
+    )
 
 
 # ============ 知识库检索 ============
@@ -117,11 +156,15 @@ async def lifespan(app: FastAPI):
     from langchain.tools import tool
     agent = create_agent(
         model=llm_model,
-        tools=[identify_apple_disease],
+        tools=[identify_apple_disease, analyze_apple_disease],
         system_prompt=(
             "你是一个农业问答助手。"
-            "如果用户上传了图片，调用 identify_apple_disease 工具识别病害。"
-            "回答要专业、准确。"
+            "你有两个工具："
+            "1. identify_apple_disease：识别苹果叶片病害种类（健康/锈病/黑星病）。"
+            "   当用户问'是什么病/哪类病害/健康吗'时使用。"
+            "2. analyze_apple_disease：分析病害严重程度（各病斑占比、总体病变率）。"
+            "   当用户问'严重吗/病斑多少/占比/面积/轻重'时使用。"
+            "根据问题类型自主选择工具，回答要专业、准确。"
         ),
     )
     logger.info("智能体服务初始化完成")
@@ -159,12 +202,20 @@ async def chat(request: ChatRequest):
     返回格式：class, confidence, all_probs, answer
     """
     try:
+        question = request.question.strip()
         class_result = None
         image_bytes = None
         result_text = ""
+        tmp_path = None  # 图片临时文件路径（供工具调用）
 
-        # 有图片则先识别病害
-        if request.image_base64:
+        # ===== 意图判断：寒暄类问题直接回答，不触发识别/检索 =====
+        is_greeting = any(w in question for w in GREETING_WORDS)
+        needs_agri = any(w in question for w in AGRI_KEYWORDS)
+        # 纯寒暄（无农业意图）：即使带图片也不识别，直接聊天
+        pure_greeting = is_greeting and not needs_agri
+
+        # 有图片则先识别病害（纯寒暄除外）
+        if request.image_base64 and not pure_greeting:
             image_bytes = base64.b64decode(request.image_base64)
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
                 tmp_file.write(image_bytes)
@@ -181,31 +232,45 @@ async def chat(request: ChatRequest):
             else:
                 result_text = f"【病害识别失败】\n{class_result.get('error', '未知错误')}\n\n"
 
-        # 知识库检索（Milvus 不可用时降级为跳过）
+        # ===== 知识库检索：仅农业问题触发，且按相关度过滤 =====
         knowledge_block = ""
-        if milvus_client is not None and embedding_model is not None:
+        if (not is_greeting and needs_agri
+                and milvus_client is not None and embedding_model is not None):
             try:
-                his = retrieve(request.question, limit=3)
-                knowledge_block = "【知识库检索结果】\n"
-                for i, item in enumerate(his, 1):
-                    text = item["entity"]["text"]
-                    source = item["entity"].get("source", "unknown")
-                    score = item["distance"]
-                    knowledge_block += f"[{i}] 来源：{source}，相关度：{score:.4f}\n{text}\n\n"
+                his = retrieve(question, limit=5)
+                # 只保留相关度较高的结果（Milvus COSINE 距离越小越相关，阈值 0.4）
+                relevant = [item for item in his if item.get("distance", 1.0) < 0.4]
+                if relevant:
+                    knowledge_block = "【知识库检索结果】\n"
+                    for i, item in enumerate(relevant[:3], 1):
+                        text = item["entity"]["text"]
+                        source = item["entity"].get("source", "unknown")
+                        score = item["distance"]
+                        knowledge_block += f"[{i}] 来源：{source}，相关度：{score:.4f}\n{text}\n\n"
+                logger.info("检索: %d 条原始, %d 条相关", len(his), len(relevant))
             except Exception as e:
                 logger.warning("知识库检索失败: %s", e)
                 knowledge_block = ""
 
         # 组合 Prompt
-        user_prompt = f"""
-用户问题：{request.question}
-
+        if is_greeting and not request.image_base64:
+            # 纯寒暄：不塞任何检索内容，让 Agent 正常聊天
+            user_prompt = question
+        else:
+            # 有图片时把临时文件路径交给 Agent，供工具调用
+            img_hint = f"\n用户上传的图片已保存到: {tmp_path}\n如需要分析图片请使用该路径调用工具。\n" \
+                if request.image_base64 else ""
+            user_prompt = f"""
+用户问题：{question}
+{img_hint}
 {result_text}
 {knowledge_block}
 
 请根据以上信息回答用户问题。
 - 优先参考病害识别结果。
-- 结合知识库中的农业知识。
+- 结合知识库中的农业知识（如有）。
+- 如果检索结果与问题无关，忽略它，直接根据你的知识回答。
+- 回答要自然，不要重复"识别结果"和"知识库检索结果"的原始格式。
 """
 
         result = agent.invoke({
